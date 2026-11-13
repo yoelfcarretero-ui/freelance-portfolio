@@ -1,0 +1,36 @@
+{
+  "name": "rag-chatbot-dental-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI assistant that answers only from a business's own documents (RAG), with sources, lead capture and human handoff. Demo: fictional dental clinic in Madrid.",
+  "type": "module",
+  "author": "Yoel Carretero <yoelf.carretero@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build:index && npm run typecheck && npm run build:widget",
+    "build:index": "tsx scripts/build-index.ts",
+    "build:widget": "tsx scripts/build-widget.ts",
+    "typecheck": "tsc --noEmit",
+    "dev": "npm run build:index && npm run build:widget && tsx scripts/dev-server.ts",
+    "start": "tsx scripts/dev-server.ts",
+    "ingest": "tsx scripts/ingest.ts",
+    "ingest:dry": "tsx scripts/ingest.ts --dry-run",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "openai": "^7.56.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

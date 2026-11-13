@@ -1,0 +1,41 @@
+{
+  "name": "supabase-rls-check",
+  "version": "1.0.0",
+  "description": "Read-only security audit for Supabase projects: RLS exposure, public storage, auth settings and leaked keys in your repo.",
+  "type": "module",
+  "bin": {
+    "supabase-rls-check": "dist/bin.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/bin.ts",
+    "demo": "tsx examples/demo.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "supabase",
+    "security",
+    "rls",
+    "postgrest",
+    "audit",
+    "lovable"
+  ],
+  "author": "Yoel Carretero <yoelf.carretero@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

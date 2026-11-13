@@ -1,0 +1,166 @@
+{
+  "id": "ErrNotifierWf001",
+  "name": "Error Notifier",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1cd61a54-66b4-4e1a-81d5-cb02323814bf",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Build a readable alert from the Error Trigger payload.\nconst e = $input.first().json;\nconst wfName = e.workflow?.name ?? 'unknown workflow';\nconst node = e.execution?.lastNodeExecuted ?? e.trigger?.error?.node?.name ?? 'unknown node';\nconst message = e.execution?.error?.message ?? e.trigger?.error?.message ?? 'no message';\nconst url = e.execution?.url ?? '(no execution URL - trigger error)';\nconst text = [\n  'n8n workflow failed',\n  'Workflow: ' + wfName,\n  'Node: ' + node,\n  'Error: ' + message,\n  'Execution: ' + url,\n  'Time: ' + $now.setZone('Europe/Madrid').toFormat('yyyy-MM-dd HH:mm:ss'),\n].join('\\n');\nreturn [{ json: { subject: '[n8n] ' + wfName + ' failed at ' + node, text } }];"
+      },
+      "id": "c471aa06-0818-4c30-b527-962c529ca579",
+      "name": "Format Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e67b0ed6-9639-4920-ae5f-43391f2e56d6",
+              "name": "telegram_chat_id",
+              "value": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+              "type": "string"
+            },
+            {
+              "id": "88b77843-e8c0-40c1-bbba-7bf82a7c580a",
+              "name": "alert_email",
+              "value": "ops@example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8d6c395c-f325-4f21-972f-a536b9eb2a28",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "0edb41bd-6a1c-4a71-90d1-9d4481b89c2e",
+      "name": "Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        680,
+        100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.alert_email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "c5a98e1b-cfee-4df7-8957-c220c08f7a0d",
+      "name": "Email Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Telegram Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid",
+    "saveManualExecutions": true
+  },
+  "versionId": "830bd3c1-cdc9-4793-82d3-f57a2556ff0c",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo"
+  },
+  "tags": [],
+  "pinData": {}
+}

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact us - Lead form demo</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #ffffff; --text: #101828; --muted: #667085; --border: #e4e7ec;
+    --accent: #ea4b71; --accent-dark: #c93a5d; --ok: #067647; --warn: #b54708; --bad: #b42318;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0c111d; --card: #161b26; --text: #f5f5f6; --muted: #94969c; --border: #2c3341; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center; padding: 40px 16px;
+  }
+  main { width: 100%; max-width: 980px; display: grid; gap: 24px; grid-template-columns: 1fr; }
+  @media (min-width: 880px) { main { grid-template-columns: 1.05fr 1fr; align-items: start; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 16px; }
+  p.lead { color: var(--muted); margin: 0 0 22px; }
+  label { display: block; font-weight: 600; font-size: 13px; margin: 14px 0 6px; }
+  label span { color: var(--muted); font-weight: 400; }
+  input, textarea {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); font: inherit;
+  }
+  input:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); border-color: var(--accent); }
+  textarea { min-height: 130px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+  .hp { position: absolute; left: -9999px; }
+  button {
+    margin-top: 20px; width: 100%; padding: 13px; border: 0; border-radius: 10px;
+    background: var(--accent); color: #fff; font: 600 15px system-ui, sans-serif; cursor: pointer;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { opacity: .6; cursor: progress; }
+  details { margin-top: 18px; color: var(--muted); font-size: 13px; }
+  details input { margin-top: 6px; font-size: 13px; }
+  .samples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .chip {
+    width: auto; margin: 0; padding: 6px 10px; font-size: 12px; border-radius: 999px;
+    background: transparent; color: var(--text); border: 1px solid var(--border);
+  }
+  .chip:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .empty { color: var(--muted); }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
+  .u-high { color: var(--bad); border-color: currentColor; }
+  .u-medium { color: var(--warn); border-color: currentColor; }
+  .u-low { color: var(--ok); border-color: currentColor; }
+  dl { margin: 0; display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; }
+  dt { color: var(--muted); font-size: 13px; }
+  dd { margin: 0; }
+  .reply { margin-top: 18px; padding: 14px; border-radius: 10px; border: 1px dashed var(--border); white-space: pre-wrap; }
+  .error { color: var(--bad); }
+  pre { font-size: 12px; overflow: auto; max-height: 220px; background: color-mix(in srgb, var(--border) 35%, transparent); padding: 10px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h1>Tell us about your project</h1>
+    <p class="lead">We reply within one business day. Urgent requests reach the team instantly.</p>
+
+    <div class="samples" aria-label="Fill with a sample lead">
+      <button type="button" class="chip" data-sample="0">Sample: urgent shop issue (ES)</button>
+      <button type="button" class="chip" data-sample="1">Sample: automation, no rush</button>
+      <button type="button" class="chip" data-sample="2">Sample: landing page</button>
+    </div>
+
+    <form id="lead-form" novalidate>
+      <div class="row">
+        <div><label for="name">Name</label><input id="name" name="name" required autocomplete="name"></div>
+        <div><label for="email">Email</label><input id="email" name="email" type="email" required autocomplete="email"></div>
+      </div>
+      <div class="row">
+        <div><label for="company">Company <span>(optional)</span></label><input id="company" name="company" autocomplete="organization"></div>
+        <div><label for="phone">Phone <span>(optional)</span></label><input id="phone" name="phone" autocomplete="tel"></div>
+      </div>
+      <label for="message">What do you need?</label>
+      <textarea id="message" name="message" required placeholder="Goals, deadline, budget..."></textarea>
+      <!-- Honeypot: hidden from humans, bots fill it in and get rejected by the workflow -->
+      <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button id="submit" type="submit">Send request</button>
+
+      <details>
+        <summary>Webhook settings</summary>
+        <label for="webhook">Webhook URL</label>
+        <input id="webhook" value="http://localhost:5678/webhook/lead-demo">
+        <p>Use <code>/webhook/lead-demo</code> for the mock workflow or <code>/webhook/lead</code> for the AI workflow.
+           Add <code>?webhook=...</code> to the page URL to preset it.</p>
+      </details>
+    </form>
+  </section>
+
+  <section class="card" aria-live="polite">
+    <h2>What the automation decided</h2>
+    <div id="result"><p class="empty">Submit the form to see the classification, the urgency routing and the drafted reply returned by n8n.</p></div>
+  </section>
+</main>
+
+<script>
+  const SAMPLES = [
+    { name: 'Laura Martinez', email: 'laura@example.com', company: 'Floristeria Martinez', phone: '+34 600 111 222',
+      message: 'Hola, nuestra tienda online en WooCommerce no funciona desde esta mañana y estamos perdiendo ventas. Necesito ayuda urgente, tenemos unos 800 € de presupuesto.' },
+    { name: 'James Carter', email: 'james.carter@example.com', company: 'Carter Logistics', phone: '',
+      message: 'We want to automate our quote requests: emails come in, someone copies them into our CRM and replies by hand. Looking for an n8n workflow with AI. Planning this for next quarter, no rush.' },
+    { name: 'Sofia Rossi', email: 'sofia@example.com', company: '', phone: '',
+      message: 'I need a new landing page for my yoga studio with a booking form. Budget around $1,500. Would like to launch next month.' },
+  ];
+
+  const form = document.getElementById('lead-form');
+  const result = document.getElementById('result');
+  const submit = document.getElementById('submit');
+  const webhook = document.getElementById('webhook');
+
+  // Webhook URL: ?webhook=... > saved value > default
+  const fromQuery = new URLSearchParams(location.search).get('webhook');
+  try { webhook.value = fromQuery || localStorage.getItem('n8nWebhookUrl') || webhook.value; } catch {}
+  webhook.addEventListener('change', () => { try { localStorage.setItem('n8nWebhookUrl', webhook.value.trim()); } catch {} });
+
+  document.querySelectorAll('[data-sample]').forEach((btn) => btn.addEventListener('click', () => {
+    const s = SAMPLES[Number(btn.dataset.sample)];
+    for (const [k, v] of Object.entries(s)) form.elements[k].value = v;
+  }));
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const label = (s) => String(s ?? '').replace(/_/g, ' ');
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    delete data[''];
+    submit.disabled = true;
+    submit.textContent = 'Sending...';
+    result.innerHTML = '<p class="empty">Waiting for n8n...</p>';
+    const started = performance.now();
+    try {
+      const res = await fetch(webhook.value.trim(), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, source: 'website-form' }),
+      });
+      const json = await res.json().catch(() => ({}));
+      const ms = Math.round(performance.now() - started);
+      if (!res.ok || !json.ok) {
+        const errs = (json.errors || [json.message || ('HTTP ' + res.status)]).map(esc).join('<br>');
+        result.innerHTML = `<p class="error"><strong>Rejected (${res.status})</strong><br>${errs}</p>`;
+        return;
+      }
+      const c = json.classification || {};
+      result.innerHTML = `
+        <div class="badges">
+          <span class="badge">${esc(label(c.category))}</span>
+          <span class="badge u-${esc(c.urgency)}">urgency: ${esc(c.urgency)}</span>
+          <span class="badge">${esc(c.budget_estimate)}</span>
+        </div>
+        <dl>
+          <dt>Lead ID</dt><dd>${esc(json.lead_id)}</dd>
+          <dt>Summary</dt><dd>${esc(c.summary)}</dd>
+          <dt>Routing</dt><dd>${c.urgency === 'high' ? 'Team alerted on Telegram' : 'Queued for normal follow-up'}; row added to the leads sheet</dd>
+          <dt>Response time</dt><dd>${ms} ms</dd>
+        </dl>
+        <div class="reply"><strong>Drafted reply</strong>\n${esc(c.suggested_reply)}</div>
+        <details><summary>Raw response</summary><pre>${esc(JSON.stringify(json, null, 2))}</pre></details>`;
+    } catch (e) {
+      result.innerHTML = `<p class="error"><strong>Could not reach the webhook.</strong><br>
+        Check that n8n is running, the workflow is active and the URL is correct.<br><small>${esc(e.message)}</small></p>`;
+    } finally {
+      submit.disabled = false;
+      submit.textContent = 'Send request';
+    }
+  });
+</script>
+</body>
+</html>

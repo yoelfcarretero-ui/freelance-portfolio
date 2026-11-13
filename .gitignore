@@ -1,0 +1,37 @@
+# Private folders: never go to the public portfolio repo
+research/
+perfil/
+clientes/
+finanzas/
+plataformas/
+gigs/
+ROADMAP.md
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and builds
+node_modules/
+dist/
+build/
+.vercel/
+.next/
+coverage/
+*.log
+
+# n8n local data
+**/n8n_data/
+**/.n8n/
+
+# Supabase local
+**/supabase/.temp/
+**/supabase/.branches/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/

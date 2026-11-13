@@ -1,0 +1,409 @@
+{
+  "id": "LeadCaptureMock1",
+  "name": "Lead Capture (Mock, no credentials)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-demo",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "4c5c98dc-d885-43ca-a0c6-44aa6b84d50d",
+      "name": "Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "fc51998d-142c-405d-b921-4c309a31c656"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Normalize and validate the incoming lead. Runs once per item.\n// The Webhook node puts the POST payload under $json.body.\nconst body = $json.body ?? $json;\n\nconst clean = (value, max = 500) =>\n  String(value ?? '').trim().replace(/\\s+/g, ' ').slice(0, max);\n\nconst lead = {\n  name: clean(body.name, 120),\n  email: clean(body.email, 200).toLowerCase(),\n  company: clean(body.company, 160),\n  phone: clean(body.phone, 40).replace(/[^\\d+]/g, ''),\n  source: clean(body.source || 'website-form', 60),\n  message: String(body.message ?? '').trim().slice(0, 4000),\n};\n\nconst errors = [];\nif (lead.name.length < 2) errors.push('name is required');\nif (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(lead.email)) errors.push('email is invalid');\nif (lead.message.length < 10) errors.push('message must be at least 10 characters');\n// Honeypot: the form has a hidden \"website\" field that only bots fill in.\nif (clean(body.website)) errors.push('spam detected');\n\nlead.lead_id = 'L-' + $now.toFormat('yyyyMMdd-HHmmss') + '-' + Math.random().toString(36).slice(2, 6);\nlead.received_at = $now.toISO();\n\nreturn { json: { ...lead, valid: errors.length === 0, errors } };"
+      },
+      "id": "e213fec4-3e9e-47a9-9ec3-9ec97f8b03ed",
+      "name": "Normalize & Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "54ca9a94-7dac-4e65-9c10-d92e624d8680",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "e598e4aa-43de-46b3-bc74-30cf4cc5b740",
+      "name": "Is Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, errors: $json.errors }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "d7d883d8-e745-483c-b32b-565849345963",
+      "name": "Respond 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Deterministic stand-in for the LLM step: same output schema as the AI workflow\n// {category, urgency, budget_estimate, summary, suggested_reply}, no API key needed.\nconst lead = $json;\nconst text = (lead.message + ' ' + lead.company).toLowerCase();\n// Whole-word match (\"cart\" must not match \"Carter\"); a trailing * marks a stem (\"automat*\").\nconst has = (words) => words.some((w) =>\n  new RegExp('(^|[^a-z0-9áéíóúñ])' + w.replace('*', '').split('.').join('\\\\.') +\n    (w.endsWith('*') ? '' : '(?![a-z0-9áéíóúñ])')).test(text));\n\n// 1) Category by keyword\nconst rules = [\n  ['ecommerce', ['shop', 'tienda', 'store', 'shopify', 'woocommerce', 'ecommerce', 'e-commerce', 'checkout', 'cart']],\n  ['automation', ['automat*', 'n8n', 'zapier', 'make.com', 'workflow', 'integrat*', 'crm', 'chatbot', 'ai agent']],\n  ['support', ['broken', 'error', 'bug', 'down', 'not working', 'no funciona', 'caido', 'caída', 'fix']],\n  ['marketing', ['seo', 'ads', 'marketing', 'campaign', 'campaña', 'newsletter', 'social media', 'leads']],\n  ['web_development', ['website', 'web', 'landing', 'página', 'pagina', 'app', 'redesign', 'wordpress']],\n];\nconst category = (rules.find(([, words]) => has(words)) ?? ['other'])[0];\n\n// 2) Urgency\nlet urgency = 'medium';\nif (has(['urgent', 'urgente', 'asap', 'today', 'hoy', 'tomorrow', 'mañana', 'this week', 'esta semana', 'down', 'broken', 'caido', 'deadline', 'losing sales', 'perdiendo'])) urgency = 'high';\nelse if (has(['no rush', 'sin prisa', 'next quarter', 'next year', 'just exploring', 'solo informacion', 'curious', 'someday'])) urgency = 'low';\n\n// 3) Budget: use a stated amount if present, else a typical range per category\nconst m = lead.message.match(/(\\d[\\d.,]*)\\s*(k|K)?\\s*(€|eur|euros|\\$|usd|dollars)|(€|\\$)\\s*(\\d[\\d.,]*)\\s*(k|K)?/);\nlet budget_estimate;\nif (m) {\n  const raw = (m[1] ?? m[5]).replace(/[.,](?=\\d{3}\\b)/g, '').replace(',', '.');\n  const amount = Math.round(parseFloat(raw) * ((m[2] ?? m[6]) ? 1000 : 1));\n  const cur = /\\$|usd|dollar/i.test(m[0]) ? 'USD' : 'EUR';\n  budget_estimate = amount + ' ' + cur + ' (stated)';\n} else {\n  budget_estimate = {\n    web_development: '1500-4000 EUR', automation: '500-2500 EUR', ecommerce: '2500-8000 EUR',\n    marketing: '300-1500 EUR / month', support: '150-600 EUR', other: 'unknown',\n  }[category];\n}\n\n// 4) Summary: first sentence, trimmed\nconst first = lead.message.split(/(?<=[.!?])\\s/)[0];\nconst summary = (lead.company ? lead.company + ': ' : '') + (first.length > 140 ? first.slice(0, 137) + '...' : first);\n\n// 5) Suggested reply in the lead's language (very small heuristic)\nconst spanish = /\\b(hola|necesito|quiero|tienda|gracias|nuestra|empresa|para|presupuesto)\\b/i.test(lead.message);\nconst firstName = lead.name.split(' ')[0];\nconst topics = {\n  web_development: ['your new website', 'tu nueva web'],\n  automation: ['automating your processes', 'automatizar vuestros procesos'],\n  ecommerce: ['your online shop', 'vuestra tienda online'],\n  marketing: ['your marketing', 'vuestro marketing'],\n  support: ['the issue you are facing', 'la incidencia que tenéis'],\n  other: ['your project', 'tu proyecto'],\n};\nconst [topicEn, topicEs] = topics[category];\nconst suggested_reply = spanish\n  ? `Hola ${firstName}, gracias por escribirnos. Hemos leído tu mensaje sobre ${topicEs} y nos encantaría ayudarte${urgency === 'high' ? ' cuanto antes' : ''}. ¿Te viene bien una llamada de 20 minutos ${urgency === 'high' ? 'hoy o mañana' : 'esta semana'} para concretar alcance y plazos? Un saludo, el equipo de Acme Studio`\n  : `Hi ${firstName}, thanks for reaching out. We read your message about ${topicEn} and would love to help${urgency === 'high' ? ' as soon as possible' : ''}. Would a 20-minute call ${urgency === 'high' ? 'today or tomorrow' : 'this week'} work to agree on scope and timeline? Best regards, the Acme Studio team`;\n\nreturn { json: { ...lead, category, urgency, budget_estimate, summary, suggested_reply, classified_by: 'rules (mock)' } };"
+      },
+      "id": "afa7a01d-9982-4fd0-af83-d84f39ed1690",
+      "name": "Classify Lead (rules)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6fe5959d-383f-45d6-86d1-f29aaa8811ab",
+              "leftValue": "={{ $json.urgency }}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "86e91299-9dd6-4d39-950d-eec9318b299a",
+      "name": "Urgency High?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// In the real workflow this is a Telegram node. Here we just build the message\n// so you can inspect it in the execution log.\nreturn { json: { channel: 'telegram (mock)', text: `URGENT lead ${$json.lead_id}: ${$json.name} - ${$json.summary}` } };"
+      },
+      "id": "06c38e9f-3e7b-4317-8218-a94ac3580e0e",
+      "name": "Notify Team (mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Stand-in for Google Sheets: keep the last 50 leads in workflow static data.\n// Static data persists only for production (active workflow) executions.\nconst store = $getWorkflowStaticData('global');\nstore.leads = store.leads ?? [];\nfor (const item of $input.all()) {\n  const { suggested_reply, ...row } = item.json;\n  store.leads.unshift(row);\n}\nstore.leads = store.leads.slice(0, 50);\nreturn $input.all().map((i) => ({ json: { ...i.json, stored_leads: store.leads.length } }));"
+      },
+      "id": "19507978-077e-4f94-81fa-75664113d39e",
+      "name": "Store Lead (static data)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f2ceabac-0e87-47a0-83f9-2966041a3b1b",
+              "name": "email_preview.to",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "f753d75d-bed0-4a3e-b67a-73fbf0e147eb",
+              "name": "email_preview.subject",
+              "value": "=Re: your enquiry to Acme Studio",
+              "type": "string"
+            },
+            {
+              "id": "5bef4490-aee4-4f48-a0d3-6b0ac01b4c85",
+              "name": "email_preview.body",
+              "value": "={{ $json.suggested_reply }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "d60f2c36-950c-429d-9df4-7d3c5939d811",
+      "name": "Draft Follow-up Email (mock)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, lead_id: $json.lead_id, classification: { category: $json.category, urgency: $json.urgency, budget_estimate: $json.budget_estimate, summary: $json.summary, suggested_reply: $json.suggested_reply }, classified_by: $json.classified_by, email_preview: $json.email_preview, stored_leads: $json.stored_leads }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "7c56c1ab-c0fa-4d90-a240-5a51ef8cd0f2",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "lead-demo/leads",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "89fd38a0-6232-4c0a-b3e5-789a0fff2d04",
+      "name": "List Leads Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        620
+      ],
+      "webhookId": "08b192a3-156b-478a-b14d-9cf4df30380e"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const store = $getWorkflowStaticData('global');\nconst leads = store.leads ?? [];\nreturn [{ json: { count: leads.length, leads } }];"
+      },
+      "id": "5907f664-ae78-4881-85b0-1b8f1ac7f4fe",
+      "name": "Read Stored Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "aeec5061-4805-4ec1-8c7c-a90d278c25b6",
+      "name": "Respond Leads",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Lead capture - MOCK (no credentials)\nSame flow as **Lead Capture with AI Triage**, runnable instantly:\n- LLM replaced by a deterministic rules classifier (same JSON schema)\n- Google Sheets replaced by workflow static data (GET /webhook/lead-demo/leads)\n- Telegram and Gmail replaced by previews in the response\n\nPOST /webhook/lead-demo",
+        "height": 280,
+        "width": 560
+      },
+      "id": "c2885291-97f5-4157-a592-aa3c3cfdb38f",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -200
+      ]
+    }
+  ],
+  "connections": {
+    "Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Validate": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Classify Lead (rules)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Lead (rules)": {
+      "main": [
+        [
+          {
+            "node": "Urgency High?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Store Lead (static data)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgency High?": {
+      "main": [
+        [
+          {
+            "node": "Notify Team (mock)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Store Lead (static data)": {
+      "main": [
+        [
+          {
+            "node": "Draft Follow-up Email (mock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Follow-up Email (mock)": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Leads Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Stored Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Stored Leads": {
+      "main": [
+        [
+          {
+            "node": "Respond Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid",
+    "saveManualExecutions": true
+  },
+  "versionId": "49f1491f-7e54-4b3c-8e12-4dcf80e67c93",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo"
+  },
+  "tags": [],
+  "pinData": {}
+}

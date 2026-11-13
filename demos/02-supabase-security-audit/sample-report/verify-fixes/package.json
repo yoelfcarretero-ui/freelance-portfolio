@@ -1,0 +1,14 @@
+{
+  "name": "slotbook-verify-fixes",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Applies ../fixes.sql to an in-process Postgres (PGlite) with Supabase role stubs and checks the access matrix.",
+  "type": "module",
+  "scripts": {
+    "verify": "node verify.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.16"
+  }
+}
